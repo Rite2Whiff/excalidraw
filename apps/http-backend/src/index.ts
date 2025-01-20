@@ -1,12 +1,13 @@
 require("dotenv").config();
 import express from "express";
 import bcrypt from "bcrypt";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { prismaClient } from "@repo/database/client";
-
+import authMiddleware from "./middleware";
+import { CustomRequest } from "./interface";
+import { JWT_SECRET } from "@repo/backend-common/config";
 const app = express();
 app.use(express.json());
-const JWT_SECRET = process.env.JWT_SECRET;
 
 app.post("/signup", async (req, res) => {
   const email = req.body.email;
@@ -29,7 +30,7 @@ app.post("/signup", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.json({
-      message: "not able to signup",
+      message: "user already exists with this username",
     });
   }
 });
@@ -67,10 +68,39 @@ app.post("/login", async (req, res) => {
   });
 });
 
-app.post("/create-room", (req, res) => {
-  res.json({
-    message: "room created successfully",
-  });
+app.post("/create-room", authMiddleware, async (req: CustomRequest, res) => {
+  const userId = req.userId as string;
+  const slug = req.body.slug as string;
+
+  if (!userId) {
+    res.json({
+      message: "unable to create a room",
+    });
+    return;
+  }
+
+  try {
+    const room = await prismaClient.room.create({
+      data: {
+        adminId: userId,
+        slug: slug,
+      },
+    });
+
+    res.json({
+      roomId: room.id,
+    });
+  } catch (error) {
+    console.log(error);
+    res.json({
+      message: "Room already exists with this name",
+    });
+  }
+});
+
+app.get("/chats", authMiddleware, (req: CustomRequest, res) => {
+  4;
+  const userId = req.userId;
 });
 
 app.listen(3001, () => {
