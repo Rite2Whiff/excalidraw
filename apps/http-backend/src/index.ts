@@ -1,13 +1,15 @@
 require("dotenv").config();
-import express from "express";
+import express, { application } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prismaClient } from "@repo/database/client";
 import authMiddleware from "./middleware";
 import { CustomRequest } from "./interface";
 import { JWT_SECRET } from "@repo/backend-common/config";
+import cors from "cors";
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 app.post("/signup", async (req, res) => {
   const email = req.body.email;
@@ -98,9 +100,50 @@ app.post("/create-room", authMiddleware, async (req: CustomRequest, res) => {
   }
 });
 
-app.get("/chats", authMiddleware, (req: CustomRequest, res) => {
-  4;
+app.get("/chats/:roomId", authMiddleware, async (req: CustomRequest, res) => {
   const userId = req.userId;
+  const roomId = Number(req.params.roomId);
+  if (!userId) {
+    res.json({
+      message: "you are currently not logged in",
+    });
+    return;
+  }
+
+  const messages = await prismaClient.chat.findMany({
+    where: {
+      roomId,
+    },
+    orderBy: {
+      id: "desc",
+    },
+    take: 50,
+  });
+
+  res.json({
+    messages,
+  });
+});
+
+app.get("/room/:slug", authMiddleware, async (req: CustomRequest, res) => {
+  const slug = req.params.slug;
+  const userId = req.userId;
+
+  if (!userId) {
+    res.json({
+      message: "you are currently not logged in",
+    });
+    return;
+  }
+
+  const room = await prismaClient.room.findFirst({
+    where: {
+      slug,
+    },
+  });
+  res.json({
+    room,
+  });
 });
 
 app.listen(3001, () => {
