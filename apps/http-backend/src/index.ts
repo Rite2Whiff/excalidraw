@@ -126,6 +126,7 @@ app.get("/chats/:roomId", authMiddleware, async (req: CustomRequest, res) => {
 });
 
 app.get("/room/:slug", authMiddleware, async (req: CustomRequest, res) => {
+  console.log("hello world");
   const slug = req.params.slug;
   const userId = req.userId;
 

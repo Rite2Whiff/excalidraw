@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function JoinRoom() {
-  const [slug, setSlug] = useState(" ");
+  const [roomId, setroomId] = useState("");
   const router = useRouter();
   return (
     <div
@@ -19,12 +19,12 @@ export default function JoinRoom() {
         type="text"
         placeholder="enter roomId"
         style={{ padding: 10 }}
-        value={slug}
-        onChange={(e) => setSlug(e.target.value)}
+        value={roomId}
+        onChange={(e) => setroomId(e.target.value)}
       />
       <button
         style={{ padding: 10 }}
-        onClick={() => router.push(`/room/${slug}`)}
+        onClick={() => router.push(`/room/${roomId}`)}
       >
         Join Room
       </button>

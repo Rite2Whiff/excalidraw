@@ -20,7 +20,7 @@ function checkUser(token: string): string | null {
     if (typeof decoded === "string") {
       return null;
     }
-    if (!decoded) {
+    if (!decoded || decoded.userId) {
       return null;
     }
 
@@ -32,18 +32,17 @@ function checkUser(token: string): string | null {
 }
 
 wss.on("connection", function (ws, request) {
-  const token = request.headers["authorization"];
-
-  if (!token) {
-    wss.close();
+  const url = request.url;
+  if (!url) {
     return;
   }
+  const queryParams = new URLSearchParams(url.split("?")[1]);
+  const token = queryParams.get("token") || "";
+  const userId = checkUser(token);
 
-  const userId = checkUser(token as string);
-
-  if (!userId) {
-    wss.close();
-    return;
+  if (userId == null) {
+    ws.close();
+    return null;
   }
 
   users.push({
@@ -53,7 +52,12 @@ wss.on("connection", function (ws, request) {
   });
 
   ws.on("message", async function message(data) {
-    const parsedData = JSON.parse(data as unknown as string);
+    let parsedData;
+    if (typeof data !== "string") {
+      parsedData = JSON.parse(data.toString());
+    } else {
+      parsedData = JSON.parse(data);
+    }
 
     if (parsedData.type === "join_room") {
       const user = users.find((x) => x.ws === ws);

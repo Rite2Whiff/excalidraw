@@ -1,9 +1,11 @@
 "use client";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FormEvent } from "react";
 
 export default function Login() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -14,7 +16,9 @@ export default function Login() {
       password,
     });
 
-    console.log(response);
+    document.cookie = `token=${response.data.token}; Path=/; Secure; SameSite=Strict`;
+    alert("you are successfully logged in");
+    router.push("/join-room");
   }
 
   return (
