@@ -7,8 +7,8 @@ const wss = new WebSocketServer({ port: 8080 });
 
 interface User {
   ws: WebSocket;
-  userId: string;
   rooms: string[];
+  userId: string;
 }
 
 const users: User[] = [];
@@ -20,18 +20,18 @@ function checkUser(token: string): string | null {
     if (typeof decoded === "string") {
       return null;
     }
-    if (!decoded || decoded.userId) {
+
+    if (!decoded || !decoded.userId) {
       return null;
     }
 
     return decoded.userId;
-  } catch (error) {
-    console.log(error);
+  } catch (e) {
     return null;
   }
 }
 
-wss.on("connection", function (ws, request) {
+wss.on("connection", function connection(ws, request) {
   const url = request.url;
   if (!url) {
     return;
@@ -47,8 +47,8 @@ wss.on("connection", function (ws, request) {
 
   users.push({
     userId,
-    ws,
     rooms: [],
+    ws,
   });
 
   ws.on("message", async function message(data) {
@@ -63,20 +63,25 @@ wss.on("connection", function (ws, request) {
       const user = users.find((x) => x.ws === ws);
       user?.rooms.push(parsedData.roomId);
     }
+
     if (parsedData.type === "leave_room") {
       const user = users.find((x) => x.ws === ws);
       if (!user) {
         return;
       }
-      user.rooms = user.rooms.filter((room) => room !== parsedData.roomId);
+      user.rooms = user?.rooms.filter((x) => x !== parsedData.roomId);
     }
+
+    console.log("message received");
+    console.log(parsedData);
+
     if (parsedData.type === "chat") {
       const roomId = parsedData.roomId;
       const message = parsedData.message;
 
       await prismaClient.chat.create({
         data: {
-          roomId,
+          roomId: Number(roomId),
           message,
           userId,
         },
@@ -87,7 +92,7 @@ wss.on("connection", function (ws, request) {
           user.ws.send(
             JSON.stringify({
               type: "chat",
-              message,
+              message: message,
               roomId,
             })
           );

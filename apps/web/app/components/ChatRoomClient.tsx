@@ -14,6 +14,7 @@ export default function ChatRoomClient({
   const [currentMessage, setCurrentMessage] = useState("");
 
   useEffect(() => {
+    console.log("hello world");
     if (socket && !loading) {
       socket.send(
         JSON.stringify({
