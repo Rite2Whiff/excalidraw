@@ -25,7 +25,7 @@ export default function ChatRoomClient({
       socket.onmessage = (event) => {
         const parsedData = JSON.parse(event.data);
         if (parsedData.type === "chat") {
-          setChats((message) => [...message, parsedData.message]);
+          setChats((message) => [...message, { message: parsedData.message }]);
         }
       };
     }

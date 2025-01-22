@@ -6,7 +6,7 @@ export function useSocket() {
 
   useEffect(() => {
     const ws = new WebSocket(
-      `ws://localhost:8080/?token=${localStorage.getItem("token")}`
+      `ws://localhost:8080?token=${localStorage.getItem("token")}`
     );
     ws.onopen = () => {
       setLoading(false);
