@@ -1,4 +1,5 @@
 import axios from "axios";
+import { Eclipse } from "lucide-react";
 
 type Shape =
   | {
@@ -13,6 +14,13 @@ type Shape =
       centerX: number;
       centerY: number;
       radius: number;
+    }
+  | {
+      type: "pencil";
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
     };
 
 export async function initDraw(
@@ -52,8 +60,27 @@ export async function initDraw(
       const width = event.clientX - startX;
       const height = event.clientY - startY;
       clearCanvas(existingShapes, canvas, ctx);
-      ctx.strokeStyle = "rgb(255,255,255)";
-      ctx?.strokeRect(startX, startY, width, height);
+      ctx.strokeStyle = "rgba(255,255,255)";
+      // @ts-ignore
+      const selected = window.selectedTool;
+      if (selected === "rect") {
+        ctx?.strokeRect(startX, startY, width, height);
+      } else if (selected === "circle") {
+        const centerX = startX + width / 2;
+        const centerY = startY + height / 2;
+        const radius = Math.max(width, height) / 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.closePath();
+      } else {
+        ctx.beginPath();
+        const endx = event.clientX;
+        const endy = event.clientY;
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endx, endy);
+        ctx.stroke();
+      }
     }
   });
 
@@ -61,13 +88,39 @@ export async function initDraw(
     clicked = false;
     const width = event.clientX - startX;
     const height = event.clientY - startY;
-    const shape: Shape = {
-      type: "rect",
-      x: startX,
-      y: startY,
-      width,
-      height,
-    };
+    let shape: Shape | null = null;
+    // @ts-ignore
+    const selectedTool = window.selectedTool;
+    if (selectedTool === "rect") {
+      shape = {
+        type: "rect",
+        x: startX,
+        y: startY,
+        width,
+        height,
+      };
+    } else if (selectedTool === "circle") {
+      const radius = Math.max(width, height) / 2;
+      shape = {
+        type: "circle",
+        radius,
+        centerX: startX + radius,
+        centerY: startY + radius,
+      };
+    } else {
+      shape = {
+        type: "pencil",
+        startX,
+        startY,
+        endX: event.clientX,
+        endY: event.clientY,
+      };
+    }
+
+    if (!shape) {
+      return;
+    }
+
     existingShapes.push(shape);
     socket.send(
       JSON.stringify({
@@ -91,6 +144,25 @@ export async function initDraw(
       if (shape.type === "rect") {
         ctx.strokeStyle = "rgb(255,255,255)";
         ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+      } else if (shape.type === "circle") {
+        ctx.strokeStyle = "rgb(255,255,255)";
+        const centerX = shape.centerX;
+        const centerY = shape.centerY;
+        const radius = shape.radius;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.closePath();
+      } else {
+        ctx.strokeStyle = "rgb(255,255,255)";
+        const startX = shape.startX;
+        const startY = shape.startY;
+        const endx = shape.endX;
+        const endy = shape.endY;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endx, endy);
+        ctx.stroke();
       }
     });
   }
