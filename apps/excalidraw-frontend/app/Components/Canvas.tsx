@@ -3,7 +3,7 @@ import IconButton from "./IconButton";
 import { Circle, Pencil, RectangleVerticalIcon } from "lucide-react";
 import { Game } from "../draw/Game";
 
-export type Tool = "circle" | "rect" | "pencil";
+export type Tool = "circle" | "rect" | "pencil" | " ";
 
 export default function Canvas({
   roomId,
@@ -14,7 +14,7 @@ export default function Canvas({
 }) {
   const canvasRef = useRef(null);
   const [game, setGame] = useState<Game>();
-  const [selectedTool, setSelectedTool] = useState<Tool>("circle");
+  const [selectedTool, setSelectedTool] = useState<Tool | " ">(" ");
 
   useEffect(() => {
     game?.setTool(selectedTool);

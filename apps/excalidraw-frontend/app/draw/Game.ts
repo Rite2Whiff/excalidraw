@@ -21,6 +21,9 @@ type Shape =
       startY: number;
       endX: number;
       endY: number;
+    }
+  | {
+      type: "";
     };
 
 export class Game {
@@ -32,7 +35,12 @@ export class Game {
   private clicked: boolean;
   private startX: number;
   private startY: number;
-  private selectedTool: Tool = "circle";
+  private selectedTool: Tool;
+  private isDrawing: boolean;
+  private draggedElement: Shape | null;
+  private isDragging: boolean;
+  private offSetX: number;
+  private offSetY: number;
 
   constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
     this.canvas = canvas;
@@ -41,8 +49,14 @@ export class Game {
     this.roomId = roomId;
     this.socket = socket;
     this.clicked = false;
+    this.isDrawing = true;
+    this.isDragging = false;
     this.startX = 0;
     this.startY = 0;
+    this.offSetX = 0;
+    this.offSetY = 0;
+    this.selectedTool = "circle";
+    this.draggedElement = null;
     this.init();
     this.initHandlers();
     this.initMouseHandlers();
@@ -50,6 +64,15 @@ export class Game {
 
   setTool(tool: Tool) {
     this.selectedTool = tool;
+    this.checkIsDrawing();
+  }
+
+  checkIsDrawing() {
+    if (this.selectedTool == " ") {
+      this.isDrawing = false;
+    } else {
+      this.isDrawing = true;
+    }
   }
 
   async init() {
@@ -69,13 +92,45 @@ export class Game {
   }
 
   mouseDownHandler = (event) => {
+    let selectedElement: Shape | null = null;
     this.clicked = true;
-    this.startX = event.clientX;
-    this.startY = event.clientY;
+    if (this.isDrawing) {
+      this.startX = event.clientX;
+      this.startY = event.clientY;
+    } else {
+      const clientRect = this.canvas.getBoundingClientRect();
+      const mouseX = event.clientX - clientRect.left;
+      const mouseY = event.clientY - clientRect.top;
+      this.existingShapes.find((shape) => {
+        if (shape.type === "rect") {
+          const { x, y, width, height } = shape;
+          if (
+            mouseX >= x &&
+            mouseX <= x + width &&
+            mouseY >= y &&
+            mouseY <= y + height
+          ) {
+            selectedElement = shape;
+            this.offSetX = mouseX - selectedElement.x;
+            this.offSetY = mouseY - selectedElement.y;
+            return selectedElement;
+          } else {
+            return;
+          }
+        } else if (shape.type === "circle") {
+        }
+        return selectedElement;
+      });
+      if (selectedElement && selectedElement !== null) {
+        this.draggedElement = selectedElement;
+        this.isDragging = true;
+      }
+      return;
+    }
   };
 
   mouseMoveHandler = (event) => {
-    if (this.clicked) {
+    if (this.clicked && this.isDrawing) {
       const width = event.clientX - this.startX;
       const height = event.clientY - this.startY;
       this.clearCanvas();
@@ -92,24 +147,34 @@ export class Game {
         this.ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
         this.ctx.stroke();
         this.ctx.closePath();
-      } else {
+      } else if (selected === "pencil") {
         this.ctx.beginPath();
         const endx = event.clientX;
         const endy = event.clientY;
         this.ctx.moveTo(this.startX, this.startY);
         this.ctx.lineTo(endx, endy);
         this.ctx.stroke();
+      } else {
+        return;
+      }
+    } else if (this.clicked && this.isDragging) {
+      const clientRect = this.canvas.getBoundingClientRect();
+      if (this.draggedElement?.type === "rect") {
+        this.draggedElement.x = event.clientX - clientRect.left - this.offSetX;
+        this.draggedElement.y = event.clientY - clientRect.top - this.offSetY;
+        this.clearCanvas();
       }
     }
   };
 
   mouseUpHandler = (event) => {
     this.clicked = false;
+    this.isDragging = false;
+    this.draggedElement = null;
     const width = event.clientX - this.startX;
     const height = event.clientY - this.startY;
     let shape: Shape | null = null;
     const selectedTool = this.selectedTool;
-    console.log(selectedTool);
     if (selectedTool === "rect") {
       shape = {
         type: "rect",
@@ -126,7 +191,7 @@ export class Game {
         centerX: this.startX + radius,
         centerY: this.startY + radius,
       };
-    } else {
+    } else if (selectedTool === "pencil") {
       shape = {
         type: "pencil",
         startX: this.startX,
@@ -134,21 +199,38 @@ export class Game {
         endX: event.clientX,
         endY: event.clientY,
       };
+    } else {
+      return;
     }
 
     if (!shape) {
       return;
+    } else if (this.isDrawing) {
+      this.existingShapes.push(shape);
+      this.socket.send(
+        JSON.stringify({
+          type: "chat",
+          message: JSON.stringify(shape),
+          roomId: this.roomId,
+        })
+      );
+    } else if (!this.isDrawing) {
+      const foundElement = this.existingShapes.find((shape) => {
+        if (shape.type === "rect" && this.draggedElement?.type === "rect") {
+          return (
+            shape.width === this.draggedElement.width &&
+            shape.height === this.draggedElement.height
+          );
+        }
+      });
+      this.socket.send(
+        JSON.stringify({
+          type: "chat",
+          message: JSON.stringify(foundElement),
+          roomId: this.roomId,
+        })
+      );
     }
-
-    this.existingShapes.push(shape);
-    console.log(shape);
-    this.socket.send(
-      JSON.stringify({
-        type: "chat",
-        message: JSON.stringify(shape),
-        roomId: this.roomId,
-      })
-    );
   };
 
   initMouseHandlers() {
@@ -185,7 +267,7 @@ export class Game {
         this.ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
         this.ctx.stroke();
         this.ctx.closePath();
-      } else {
+      } else if (shape.type === "pencil") {
         this.ctx.strokeStyle = "rgb(255,255,255)";
         const startX = shape.startX;
         const startY = shape.startY;
@@ -195,6 +277,8 @@ export class Game {
         this.ctx.moveTo(startX, startY);
         this.ctx.lineTo(endx, endy);
         this.ctx.stroke();
+      } else {
+        return;
       }
     });
   }
